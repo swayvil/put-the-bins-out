@@ -15,11 +15,11 @@ import (
 	"google.golang.org/api/option"
 )
 
-const startYear = 2023
+const startYear = 2024
 const nbOfYears = 10
 const timeLocation = "Europe/Paris"
 const calendarSummary = "Poubelles"
-const eventSummary = "Sortir les poubelles de verre"
+const eventSummary = "Sortir les poubelles de verre (4ème jeudi)"
 const httpPort = "3000"
 
 func main() {
@@ -168,21 +168,35 @@ func addEvent(srv *calendar.Service, calendarID string, summary string, dateTime
 func createCalendarWithEvents(srv *calendar.Service) {
 	calendarId := addCalendar(srv, calendarSummary)
 
+	// Add an event every fourth Wednesday of each month
+	for year := startYear; year < startYear+nbOfYears; year++ {
+		for month := 1; month <= 12; month++ {
+			wednesday := searchDayBeforeFourthThursday(year, month)
+			//fmt.Printf("Wednesday before 4th Thursday of %s: %s\n", wednesday.Month(), wednesday.Format(time.RFC3339))
+			addEvent(srv, calendarId, eventSummary, wednesday.Format(time.RFC3339))
+		}
+		fmt.Printf("\n")
+	}
+}
+
+func searchDayBeforeFourthThursday(year int, month int) time.Time {
 	loc, err := time.LoadLocation(timeLocation)
 	if err != nil {
 		log.Fatalf("Unable to load time location: %v", err)
 	}
 
-	// Add an event every fourth Wednesday of each month
-	for year := startYear; year < startYear+nbOfYears; year++ {
-		for month := 1; month <= 12; month++ {
-			// Date on the first day of the month at 4pm
-			date := time.Date(year, time.Month(month), 1, 16, 0, 0, 0, loc)
-			// Third week (3 * 7) + Wednesday index (3)
-			fourthWednesday := date.AddDate(0, 0, 3*7+3-int(date.Weekday()))
-			//fmt.Printf("Fourth Wednesday of %s: %s\n", fourthWednesday.Month(), fourthWednesday.Format(time.RFC3339))
-			addEvent(srv, calendarId, eventSummary, fourthWednesday.Format(time.RFC3339))
+	// Date on the first day of the month at 4pm
+	startDate := time.Date(year, time.Month(month), 1, 16, 0, 0, 0, loc)
+
+	// Iterate through each day of the month
+	thursday := 0
+	for current := startDate; current.Month() == time.Month(month); current = current.AddDate(0, 0, 1) {
+		if current.Format("Monday") == "Thursday" {
+			thursday++
 		}
-		fmt.Printf("\n")
+		if thursday == 4 {
+			return current.AddDate(0, 0, -1) // Return the day (Wednesday) before
+		}
 	}
+	return time.Time{}
 }
